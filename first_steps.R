@@ -36,14 +36,13 @@ exp_class <- distinct(cpi_compt, exp_cl) %>% filter(complete.cases(.)) %>% map_d
   mutate_if(is_character, str_replace_all, ",", "")
 
 
-df <- ABS_narrative_augment_funct('./Data/640105.xls')  %>% 
-  map_df(tolower) %>% 
-  mutate_if(is_character, str_trim) %>%
-  mutate_if(is_character, str_replace_all, " ", "_") %>%
-  mutate_if(is_character, str_replace_all, "-", "_") %>% 
-  mutate_if(is_character, str_replace_all, ",", "") %>% 
+df <- ABS_narrative_augment_funct('./Data/640105.xls') %>% 
   group_by(level_1, level_2, level_3, unit) %>% 
   nest() %>% 
+    mutate_if(is_character, str_trim) %>%
+    mutate_if(is_character, str_replace_all, " ", "_") %>%
+    mutate_if(is_character, str_replace_all, "-", "_") %>% 
+    mutate_if(is_character, str_replace_all, ",", "") %>%  
   distinct(level_1, level_2, level_3, unit, .keep_all = T) %>% 
   unnest()
 
@@ -55,20 +54,13 @@ year(date_minus_10_years) <- year(date_minus_10_years) - 10
 
 current_period <- max(df$period)
 
+# By removing level_2 from this filter operation you get a list of the most recent percentage changes from the previous period.
+lwiay <- df %>% 
+  filter(level_1 == 'percentage_change_from_previous_period', period == current_period) %>% 
+  select(level_2, obs)
 
-gghighlight::gghighlight_point(dg, aes(x = period[as.Date(period) > '1990-01-01'], y = obs), predicate = obs > quantile(dg$obs, na.rm = T, probs = .95), use_direct_label = F)
-
-cat_df <- function(level_2_var_name) {
-  level_2_var_name <- enquo(level_2_var_name)
-  
-  
-  df %>% 
-    filter(level_1 == 'percentage_change_from_previous_period', level_2 ==  !! level_2_var_name, period == current_period) %>% 
-    select(level_1, level_2, obs)
-}
-
-
-
+left_join(category, lwiay, by = c('cat' = 'level_2')) %>% 
+  arrange(desc(obs))
 
 
 # create a partial and map category names over to generate a dataframe - map_dfr(unique(cpi_compt$cat), cat_df)
@@ -96,3 +88,7 @@ variable_text <- function(single_tidy_variable) {
   }
 
 }
+
+
+
+gghighlight::gghighlight_point(dg, aes(x = period[as.Date(period) > '1990-01-01'], y = obs), predicate = obs > quantile(dg$obs, na.rm = T, probs = .95), use_direct_label = F)
