@@ -10,6 +10,9 @@ cpi_compt <- read_excel(path = './Data/consumer price index  - 2018 weighting pa
   mutate_if(is_character, str_replace_all, " ", "_") %>%
   mutate_if(is_character, str_replace_all, "-", "_") %>% 
   mutate_if(is_character, str_replace_all, ",", "") 
+
+seperate_cpi_decomp <- read_excel(path = './Data/cpi_category_break_down.xlsx', sheet = 'sub_cat')
+
 # cpi_cats <- tibble(
 #   category     = list(distinct(cpi_compt, cat) %>% filter(complete.cases(.))),
 #   sub_category = list(distinct(cpi_compt, sub_cat) %>% filter(complete.cases(.))),
@@ -55,12 +58,36 @@ year(date_minus_10_years) <- year(date_minus_10_years) - 10
 current_period <- max(df$period)
 
 # By removing level_2 from this filter operation you get a list of the most recent percentage changes from the previous period.
-lwiay <- df %>% 
+pct_change_prev_period <- df %>% 
   filter(level_1 == 'percentage_change_from_previous_period', period == current_period) %>% 
   select(level_2, obs)
 
-left_join(category, lwiay, by = c('cat' = 'level_2')) %>% 
-  arrange(desc(obs))
+pct_change_prev_year <- df %>% 
+  filter(level_1 == 'percentage_change_from_corresponding_quarter_of_previous_year', period == current_period) %>% 
+  select(level_2, obs)
+
+table_1 <- left_join(category, pct_change_prev_period, by = c('cat' = 'level_2')) %>% 
+  arrange(desc(obs)) %>% 
+  rename(pct_prev_period = obs,
+         category = cat) %>% 
+  distinct(category, pct_prev_period)
+  left_join(pct_change_prev_year, by = c('category' = 'level_2')) %>% 
+  rename(pct_prev_year = obs)
+
+# putting growth figures next to sub_cat's
+sub_cat <- read_excel(path = './Data/cpi_category_break_down.xlsx', sheet = 'sub_cat') %>% 
+  mutate_if(is_character, str_trim) %>%
+  mutate_if(is_character, str_replace_all, " ", "_") %>%
+  mutate_if(is_character, str_replace_all, "-", "_") %>% 
+  mutate_if(is_character, str_replace_all, ",", "") %>% 
+  mutate_if(is_character, tolower)
+
+exp_cl <- seperate_cpi_decomp <- read_excel(path = './Data/cpi_category_break_down.xlsx', sheet = 'exp_cl') %>% 
+  mutate_if(is_character, str_trim) %>%
+  mutate_if(is_character, str_replace_all, " ", "_") %>%
+  mutate_if(is_character, str_replace_all, "-", "_") %>% 
+  mutate_if(is_character, str_replace_all, ",", "")  %>% 
+  mutate_if(is_character, tolower)
 
 
 # create a partial and map category names over to generate a dataframe - map_dfr(unique(cpi_compt$cat), cat_df)
